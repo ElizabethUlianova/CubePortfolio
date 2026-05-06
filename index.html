@@ -371,11 +371,13 @@
   /* ================================================================
      MOUSE / INTERACTION
   ================================================================ */
-  const raycaster  = new THREE.Raycaster();
-  const mouseNDC   = new THREE.Vector2(-999, -999);
-  let   hoveredMesh = null;
-  let   mouseDownX  = 0, mouseDownY = 0;
+  const raycaster = new THREE.Raycaster();
+  const mouseNDC  = new THREE.Vector2(-999, -999);
+  let hoveredMesh  = null;
+  let pointerDownX = 0, pointerDownY = 0;
+  let isDragging   = false;
 
+  // ── Tooltip / hover tracking ──────────────────────────────────────
   document.addEventListener('mousemove', e => {
     mouseNDC.x =  (e.clientX / window.innerWidth)  * 2 - 1;
     mouseNDC.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -383,33 +385,42 @@
     tooltip.style.top  = e.clientY + 'px';
   });
 
-  document.addEventListener('mousedown', e => {
-    mouseDownX = e.clientX;
-    mouseDownY = e.clientY;
+  // ── Drag detection ────────────────────────────────────────────────
+  renderer.domElement.addEventListener('pointerdown', e => {
+    pointerDownX = e.clientX;
+    pointerDownY = e.clientY;
+    isDragging   = false;
     controls.autoRotate = false;
     renderer.domElement.style.cursor = 'grabbing';
   });
 
-  document.addEventListener('mouseup', e => {
-    const dx   = e.clientX - mouseDownX;
-    const dy   = e.clientY - mouseDownY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
+  renderer.domElement.addEventListener('pointermove', e => {
+    const dx = Math.abs(e.clientX - pointerDownX);
+    const dy = Math.abs(e.clientY - pointerDownY);
+    if (dx > 4 || dy > 4) isDragging = true;
+  });
 
+  // ── Click: fresh raycast at release position ──────────────────────
+  renderer.domElement.addEventListener('pointerup', e => {
     renderer.domElement.style.cursor = hoveredMesh ? 'pointer' : 'grab';
     setTimeout(() => { controls.autoRotate = true; }, 2800);
 
-    // Treat as click if barely moved — do a fresh raycast at click position
-    // (don't rely on hoveredMesh from the animation loop, which can desync)
-    if (dist < 10) {
-      const clickNDC = new THREE.Vector2(
-        (e.clientX / window.innerWidth)  * 2 - 1,
-        -(e.clientY / window.innerHeight) * 2 + 1
-      );
-      raycaster.setFromCamera(clickNDC, camera);
-      const clickHits = raycaster.intersectObjects(meshes, false);
-      if (clickHits.length > 0) {
-        window.location.href = clickHits[0].object.userData.proj.url;
-      }
+    if (isDragging) return;   // was a rotate gesture, not a tap
+
+    // Force-update world matrices so they reflect current animation state
+    scene.updateMatrixWorld(true);
+    camera.updateMatrixWorld();
+
+    const ndc = new THREE.Vector2(
+      (e.clientX  / window.innerWidth)  * 2 - 1,
+      -(e.clientY / window.innerHeight) * 2 + 1
+    );
+    raycaster.setFromCamera(ndc, camera);
+
+    const hits = raycaster.intersectObjects(meshes, false);
+    if (hits.length > 0) {
+      const url = hits[0].object.userData.proj.url;
+      window.location.href = url;
     }
   });
 
