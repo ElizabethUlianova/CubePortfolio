@@ -1,0 +1,12 @@
+{
+  "name": "3d-cube-portfolio",
+  "version": "1.0.0",
+  "description": "Interactive 3D cube portfolio — six projects, floating modular composition",
+  "private": true,
+  "scripts": {
+    "dev": "npx serve .",
+    "start": "npx serve ."
+  },
+  "keywords": ["portfolio", "three.js", "3d", "webgl"],
+  "license": "MIT"
+}

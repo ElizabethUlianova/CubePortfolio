@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portfolio</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #8C8C8C;
+      overflow: hidden;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    canvas { display: block; }
+
+    /* ── Tooltip ── */
+    #tooltip {
+      position: fixed;
+      top: 0; left: 0;
+      padding: 6px 14px;
+      background: rgba(8, 8, 8, 0.72);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      border-radius: 3px;
+      pointer-events: none;
+      opacity: 0;
+      transform: translate(18px, -50%);
+      transition: opacity 0.15s ease;
+      white-space: nowrap;
+    }
+
+    /* ── Bottom hint ── */
+    #hint {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255, 255, 255, 0.38);
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      pointer-events: none;
+      user-select: none;
+      white-space: nowrap;
+    }
+
+    /* ── Name / logo ── */
+    #brand {
+      position: fixed;
+      top: 28px;
+      left: 36px;
+      color: rgba(255, 255, 255, 0.55);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      user-select: none;
+    }
+
+    /* ── Project count ── */
+    #counter {
+      position: fixed;
+      top: 28px;
+      right: 36px;
+      color: rgba(255, 255, 255, 0.35);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      user-select: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="brand">Portfolio</div>
+  <div id="counter">6 Projects</div>
+  <div id="tooltip"></div>
+  <div id="hint">Drag to rotate &nbsp;·&nbsp; Click to open</div>
+
+  <!-- Three.js from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <script>
+  /* ================================================================
+     SCENE
+  ================================================================ */
+  const tooltip = document.getElementById('tooltip');
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x8C8C8C);
+
+  const W = window.innerWidth, H = window.innerHeight;
+  const camera = new THREE.PerspectiveCamera(42, W / H, 0.1, 200);
+  camera.position.set(0, 0.1, 9.5);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(W, H);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.15;
+  document.body.appendChild(renderer.domElement);
+
+  /* ================================================================
+     CONTROLS
+  ================================================================ */
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping   = true;
+  controls.dampingFactor   = 0.055;
+  controls.enableZoom      = false;
+  controls.enablePan       = false;
+  controls.rotateSpeed     = 0.65;
+  controls.autoRotate      = true;
+  controls.autoRotateSpeed = 0.38;
+  controls.minPolarAngle   = Math.PI * 0.18;
+  controls.maxPolarAngle   = Math.PI * 0.82;
+
+  /* ================================================================
+     LIGHTING
+  ================================================================ */
+  // Soft ambient
+  scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+
+  // Main key light (warm, upper-right-front)
+  const keyLight = new THREE.DirectionalLight(0xfff6e8, 1.6);
+  keyLight.position.set(7, 10, 7);
+  keyLight.castShadow = true;
+  keyLight.shadow.mapSize.set(2048, 2048);
+  keyLight.shadow.camera.left = keyLight.shadow.camera.bottom = -12;
+  keyLight.shadow.camera.right = keyLight.shadow.camera.top  =  12;
+  keyLight.shadow.camera.near = 0.5;
+  keyLight.shadow.camera.far  = 50;
+  keyLight.shadow.bias = -0.002;
+  scene.add(keyLight);
+
+  // Cool fill from left-back
+  const fillLight = new THREE.DirectionalLight(0xc8e0ff, 0.55);
+  fillLight.position.set(-5, 2, -4);
+  scene.add(fillLight);
+
+  // Colored accent points
+  const rimA = new THREE.PointLight(0x3344ff, 1.4, 28);
+  rimA.position.set(-7, 5, 3);
+  scene.add(rimA);
+
+  const rimB = new THREE.PointLight(0xff4422, 1.0, 28);
+  rimB.position.set(7, -5, -3);
+  scene.add(rimB);
+
+  /* ================================================================
+     PROJECT DATA
+  ================================================================ */
+  const PROJECTS = [
+    {
+      id:        'megamarket',
+      name:      'Megamarket',
+      url:       'projects/megamarket.html',
+      c1:        0xC8941C,   // gradient color A
+      c2:        0xF5C84A,   // gradient color B
+      metalness: 0.88,
+      roughness: 0.10,
+      emissive:  0x1C0E00,
+    },
+    {
+      id:        'avito',
+      name:      'Avito',
+      url:       'projects/avito.html',
+      c1:        0x00A878,
+      c2:        0x00E5AA,
+      metalness: 0.04,
+      roughness: 0.03,
+      transparent: true,
+      opacity:   0.80,
+      emissive:  0x001810,
+    },
+    {
+      id:        'viju',
+      name:      'Viju',
+      url:       'projects/viju.html',
+      c1:        0x6B1FE8,
+      c2:        0xAA66FF,
+      metalness: 0.22,
+      roughness: 0.07,
+      emissive:  0x0C001F,
+    },
+    {
+      id:        'viju-cms',
+      name:      'Viju CMS',
+      url:       'projects/viju-cms.html',
+      c1:        0x0B7EC9,
+      c2:        0x38C7FF,
+      metalness: 0.72,
+      roughness: 0.17,
+      emissive:  0x001020,
+    },
+    {
+      id:        'brag-house',
+      name:      'Brag House',
+      url:       'projects/brag-house.html',
+      c1:        0xE01850,
+      c2:        0xFF6B9D,
+      metalness: 0.78,
+      roughness: 0.28,
+      emissive:  0x1A0008,
+    },
+    {
+      id:        'sbermarket',
+      name:      'Sbermarket',
+      url:       'projects/sbermarket.html',
+      c1:        0xD8D8D8,
+      c2:        0xF4F4F4,
+      metalness: 0.00,
+      roughness: 0.94,
+      emissive:  0x060606,
+    },
+  ];
+
+  /* ================================================================
+     CANVAS TEXTURE
+  ================================================================ */
+  function hex2rgb(hex) {
+    return [(hex >> 16) & 0xFF, (hex >> 8) & 0xFF, hex & 0xFF];
+  }
+
+  function makeTexture(proj) {
+    const SZ = 512;
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = SZ;
+    const ctx = cv.getContext('2d');
+
+    // Gradient background
+    const [r1, g1, b1] = hex2rgb(proj.c1);
+    const [r2, g2, b2] = hex2rgb(proj.c2);
+    const grd = ctx.createLinearGradient(0, 0, SZ, SZ);
+    grd.addColorStop(0, `rgb(${r1},${g1},${b1})`);
+    grd.addColorStop(1, `rgb(${r2},${g2},${b2})`);
+    ctx.fillStyle = grd;
+    ctx.fillRect(0, 0, SZ, SZ);
+
+    // Diagonal stripe pattern
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.065)';
+    ctx.lineWidth = 1;
+    for (let i = -SZ; i < SZ * 2; i += 52) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i + SZ, SZ);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    // Corner highlight arc
+    ctx.save();
+    ctx.fillStyle = 'rgba(255,255,255,0.09)';
+    ctx.beginPath();
+    ctx.arc(SZ, 0, 110, 0, Math.PI * 0.5);
+    ctx.fill();
+    ctx.restore();
+
+    // Vignette
+    const vig = ctx.createRadialGradient(SZ/2, SZ/2, SZ * 0.18, SZ/2, SZ/2, SZ * 0.78);
+    vig.addColorStop(0, 'rgba(0,0,0,0)');
+    vig.addColorStop(1, 'rgba(0,0,0,0.28)');
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, SZ, SZ);
+
+    // Project name label
+    ctx.fillStyle = 'rgba(255,255,255,0.93)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    const words = proj.name.split(' ');
+    if (words.length === 1) {
+      const fs = proj.name.length > 8 ? 50 : 60;
+      ctx.font = `700 ${fs}px -apple-system, "Helvetica Neue", Arial, sans-serif`;
+      ctx.fillText(proj.name, SZ / 2, SZ / 2);
+    } else {
+      ctx.font = `700 52px -apple-system, "Helvetica Neue", Arial, sans-serif`;
+      ctx.fillText(words[0], SZ / 2, SZ / 2 - 38);
+      ctx.fillText(words.slice(1).join(' '), SZ / 2, SZ / 2 + 38);
+    }
+
+    // Bottom dot indicator
+    ctx.fillStyle = 'rgba(255,255,255,0.38)';
+    ctx.beginPath();
+    ctx.arc(SZ / 2, SZ - 46, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    return new THREE.CanvasTexture(cv);
+  }
+
+  /* ================================================================
+     BLOCKS
+  ================================================================ */
+  const GROUP = new THREE.Group();
+  scene.add(GROUP);
+
+  const S    = 1.42;  // block edge
+  const GAP  = 0.13;
+  const STEP = S + GAP;
+
+  // 2-col × 3-row grid, centred
+  const COLS = 2, ROWS = 3;
+  const ox   = -(COLS - 1) / 2 * STEP;
+  const oy   =  (ROWS - 1) / 2 * STEP;
+
+  // Per-block sculpting: z-offset + tiny rotation offsets
+  const SCULPT = [
+    { z:  0.20, rx:  0.025, ry:  0.042, rz:  0.014 },
+    { z: -0.12, rx: -0.020, ry:  0.050, rz: -0.011 },
+    { z: -0.18, rx:  0.032, ry: -0.028, rz:  0.019 },
+    { z:  0.09, rx: -0.016, ry: -0.036, rz:  0.023 },
+    { z:  0.05, rx:  0.040, ry:  0.026, rz: -0.018 },
+    { z: -0.24, rx: -0.033, ry:  0.014, rz:  0.031 },
+  ];
+
+  const meshes   = [];
+  const basePosY = [];   // store base Y for per-block float
+
+  PROJECTS.forEach((proj, i) => {
+    const col = i % COLS;
+    const row = Math.floor(i / COLS);
+    const sc  = SCULPT[i];
+
+    const bx = ox + col * STEP;
+    const by = oy - row * STEP;
+    const bz = sc.z;
+    basePosY.push(by);
+
+    const geo = new THREE.BoxGeometry(S, S, S);
+    const tex = makeTexture(proj);
+
+    const matOpts = {
+      map:               tex,
+      metalness:         proj.metalness,
+      roughness:         proj.roughness,
+      emissive:          new THREE.Color(proj.emissive),
+      emissiveIntensity: 0.35,
+    };
+    if (proj.transparent) {
+      matOpts.transparent = true;
+      matOpts.opacity     = proj.opacity;
+    }
+
+    const mat  = new THREE.MeshStandardMaterial(matOpts);
+    const mesh = new THREE.Mesh(geo, mat);
+
+    mesh.position.set(bx, by, bz);
+    mesh.rotation.set(sc.rx, sc.ry, sc.rz);
+    mesh.castShadow    = true;
+    mesh.receiveShadow = true;
+    mesh.userData      = { proj, hovered: false };
+
+    GROUP.add(mesh);
+    meshes.push(mesh);
+  });
+
+  /* ================================================================
+     MOUSE / INTERACTION
+  ================================================================ */
+  const raycaster  = new THREE.Raycaster();
+  const mouseNDC   = new THREE.Vector2(-999, -999);
+  let   hoveredMesh = null;
+  let   mouseDownX  = 0, mouseDownY = 0;
+
+  document.addEventListener('mousemove', e => {
+    mouseNDC.x =  (e.clientX / window.innerWidth)  * 2 - 1;
+    mouseNDC.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    tooltip.style.left = e.clientX + 'px';
+    tooltip.style.top  = e.clientY + 'px';
+  });
+
+  document.addEventListener('mousedown', e => {
+    mouseDownX = e.clientX;
+    mouseDownY = e.clientY;
+    controls.autoRotate = false;
+    renderer.domElement.style.cursor = 'grabbing';
+  });
+
+  document.addEventListener('mouseup', e => {
+    const dx   = e.clientX - mouseDownX;
+    const dy   = e.clientY - mouseDownY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    renderer.domElement.style.cursor = hoveredMesh ? 'pointer' : 'grab';
+    setTimeout(() => { controls.autoRotate = true; }, 2800);
+
+    // Treat as click if barely moved
+    if (dist < 6 && hoveredMesh) {
+      window.location.href = hoveredMesh.userData.proj.url;
+    }
+  });
+
+  /* ================================================================
+     RESIZE
+  ================================================================ */
+  window.addEventListener('resize', () => {
+    const w = window.innerWidth, h = window.innerHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  });
+
+  /* ================================================================
+     ANIMATION LOOP
+  ================================================================ */
+  const clock = new THREE.Clock();
+  const _v3   = new THREE.Vector3();
+
+  function animate() {
+    requestAnimationFrame(animate);
+    const t = clock.getElapsedTime();
+
+    // Gentle whole-group drift
+    GROUP.position.y = Math.sin(t * 0.42) * 0.07;
+    GROUP.position.x = Math.sin(t * 0.28) * 0.025;
+
+    // Raycasting for hover
+    raycaster.setFromCamera(mouseNDC, camera);
+    const hits       = raycaster.intersectObjects(meshes, false);
+    const newHovered = hits.length > 0 ? hits[0].object : null;
+
+    if (newHovered !== hoveredMesh) {
+      if (hoveredMesh) {
+        hoveredMesh.userData.hovered = false;
+        tooltip.style.opacity = '0';
+      }
+      hoveredMesh = newHovered;
+      if (hoveredMesh) {
+        hoveredMesh.userData.hovered = true;
+        tooltip.textContent       = hoveredMesh.userData.proj.name;
+        tooltip.style.opacity     = '1';
+        renderer.domElement.style.cursor = 'pointer';
+      } else {
+        renderer.domElement.style.cursor = 'grab';
+      }
+    }
+
+    // Per-block animation
+    meshes.forEach((mesh, i) => {
+      // Individual float
+      const floatY = Math.sin(t * 0.58 + i * 1.08) * 0.026;
+      mesh.position.y = basePosY[i] + floatY;
+
+      // Scale on hover
+      const tgt = mesh.userData.hovered ? 1.072 : 1.0;
+      _v3.setScalar(tgt);
+      mesh.scale.lerp(_v3, 0.09);
+    });
+
+    controls.update();
+    renderer.render(scene, camera);
+  }
+
+  animate();
+  </script>
+</body>
+</html>
