@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Megamarket — Portfolio</title>
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --accent:  #C8941C;
+      --accent2: #F5C84A;
+      --num:     '01';
+    }
+
+    body {
+      background: #0E0C08;
+      color: #fff;
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Background glow */
+    .glow {
+      position: fixed;
+      top: -25vh; right: -15vw;
+      width: 65vw; height: 65vw;
+      background: radial-gradient(circle, rgba(200,148,28,0.22) 0%, rgba(200,148,28,0.06) 50%, transparent 72%);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .glow2 {
+      position: fixed;
+      bottom: -20vh; left: -10vw;
+      width: 40vw; height: 40vw;
+      background: radial-gradient(circle, rgba(245,200,74,0.08) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Giant background number */
+    .bg-num {
+      position: fixed;
+      bottom: -8vh; left: -2vw;
+      font-size: 38vw;
+      font-weight: 900;
+      line-height: 1;
+      color: rgba(255,255,255,0.025);
+      pointer-events: none;
+      user-select: none;
+      z-index: 0;
+    }
+
+    /* Content */
+    .wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 36px 40px 80px;
+    }
+
+    /* Back link */
+    .back {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255,255,255,0.38);
+      text-decoration: none;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.20em;
+      text-transform: uppercase;
+      margin-bottom: 72px;
+      transition: color 0.2s;
+    }
+    .back:hover { color: rgba(255,255,255,0.82); }
+    .back svg { width: 14px; height: 14px; flex-shrink: 0; }
+
+    /* Tag */
+    .tag {
+      display: inline-block;
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      padding: 5px 12px;
+      border-radius: 2px;
+      margin-bottom: 22px;
+    }
+
+    /* Heading */
+    h1 {
+      font-size: clamp(52px, 9.5vw, 96px);
+      font-weight: 800;
+      line-height: 0.93;
+      letter-spacing: -0.04em;
+      margin-bottom: 28px;
+    }
+
+    /* Meta row */
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px 36px;
+      margin-bottom: 48px;
+      color: rgba(255,255,255,0.32);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    /* Divider */
+    .line {
+      width: 48px;
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      margin-bottom: 36px;
+    }
+
+    /* Description */
+    .desc {
+      font-size: 17px;
+      line-height: 1.72;
+      color: rgba(255,255,255,0.62);
+      max-width: 540px;
+      margin-bottom: 72px;
+    }
+    .desc strong { color: rgba(255,255,255,0.88); font-weight: 500; }
+
+    /* Stats row */
+    .stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 32px;
+      margin-bottom: 64px;
+    }
+    .stat-item {}
+    .stat-value {
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+    .stat-label {
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.3);
+    }
+
+    /* Detail grid */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 28px;
+      padding-top: 48px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .grid-item .label {
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.28);
+      margin-bottom: 8px;
+    }
+    .grid-item .value {
+      font-size: 14px;
+      color: rgba(255,255,255,0.75);
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="glow"></div>
+  <div class="glow2"></div>
+  <div class="bg-num">01</div>
+
+  <div class="wrap">
+    <a href="../index.html" class="back">
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 2L4 7l5 5"/>
+      </svg>
+      Back to portfolio
+    </a>
+
+    <div class="tag">E-commerce &middot; Design System</div>
+    <h1>Mega<br>market</h1>
+
+    <div class="meta">
+      <span>2023 &ndash; 2024</span>
+      <span>Product Design</span>
+      <span>Sber Group</span>
+    </div>
+
+    <div class="line"></div>
+
+    <p class="desc">
+      Redesigned the core shopping experience for one of Russia's largest e-commerce platforms.
+      <strong>Built and scaled a comprehensive design system</strong> serving 12 product teams
+      across web and mobile, reducing design-to-dev handoff time by 40%.
+    </p>
+
+    <div class="stats">
+      <div class="stat-item">
+        <div class="stat-value">12×</div>
+        <div class="stat-label">Team scale</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">40%</div>
+        <div class="stat-label">Faster handoff</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value">200+</div>
+        <div class="stat-label">Components</div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="grid-item">
+        <div class="label">Role</div>
+        <div class="value">Lead Product Designer</div>
+      </div>
+      <div class="grid-item">
+        <div class="label">Platform</div>
+        <div class="value">Web · iOS · Android</div>
+      </div>
+      <div class="grid-item">
+        <div class="label">Tools</div>
+        <div class="value">Figma · Storybook</div>
+      </div>
+      <div class="grid-item">
+        <div class="label">Team</div>
+        <div class="value">12 designers · 4 squads</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
