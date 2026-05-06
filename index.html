@@ -398,9 +398,18 @@
     renderer.domElement.style.cursor = hoveredMesh ? 'pointer' : 'grab';
     setTimeout(() => { controls.autoRotate = true; }, 2800);
 
-    // Treat as click if barely moved
-    if (dist < 6 && hoveredMesh) {
-      window.location.href = hoveredMesh.userData.proj.url;
+    // Treat as click if barely moved — do a fresh raycast at click position
+    // (don't rely on hoveredMesh from the animation loop, which can desync)
+    if (dist < 10) {
+      const clickNDC = new THREE.Vector2(
+        (e.clientX / window.innerWidth)  * 2 - 1,
+        -(e.clientY / window.innerHeight) * 2 + 1
+      );
+      raycaster.setFromCamera(clickNDC, camera);
+      const clickHits = raycaster.intersectObjects(meshes, false);
+      if (clickHits.length > 0) {
+        window.location.href = clickHits[0].object.userData.proj.url;
+      }
     }
   });
 
