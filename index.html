@@ -152,121 +152,70 @@
      PROJECT DATA
   ================================================================ */
   const PROJECTS = [
-    { id: 'megamarket',  name: 'Megamarket', url: 'projects/megamarket.html', hex: '#7A5CB8' },
-    { id: 'avito',       name: 'Avito',      url: 'projects/avito.html',      hex: '#E8E6E1' },
-    { id: 'viju',        name: 'Viju',       url: 'projects/viju.html',       hex: '#58B8AF' },
-    { id: 'viju-cms',    name: 'Viju CMS',   url: 'projects/viju-cms.html',   hex: '#243536' },
-    { id: 'brag-house',  name: 'Brag House', url: 'projects/brag-house.html', hex: '#C23BB6' },
-    { id: 'sbermarket',  name: 'Sbermarket', url: 'projects/sbermarket.html', hex: '#D77A1C' },
+    { id: 'megamarket',  name: 'Megamarket', url: 'projects/megamarket.html', hex: '#7A5CB8', faceW: 1.40, faceH: 2.90 },
+    { id: 'avito',       name: 'Avito',      url: 'projects/avito.html',      hex: '#E8E6E1', faceW: 2.90, faceH: 1.40 },
+    { id: 'viju',        name: 'Viju',       url: 'projects/viju.html',       hex: '#58B8AF', faceW: 1.40, faceH: 1.40 },
+    { id: 'viju-cms',    name: 'Viju CMS',   url: 'projects/viju-cms.html',   hex: '#243536', faceW: 1.40, faceH: 1.40 },
+    { id: 'brag-house',  name: 'Brag House', url: 'projects/brag-house.html', hex: '#C23BB6', faceW: 1.40, faceH: 1.40 },
+    { id: 'sbermarket',  name: 'Sbermarket', url: 'projects/sbermarket.html', hex: '#D77A1C', faceW: 1.40, faceH: 1.40 },
   ];
 
   /* ================================================================
      HELPERS
   ================================================================ */
-  // Perceived brightness  (0–255)
   function brightness(hex) {
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
     const b = parseInt(hex.slice(5, 7), 16);
     return 0.299 * r + 0.587 * g + 0.114 * b;
   }
-
-  // Hex string → Three.js integer colour
   function hexInt(hex) { return parseInt(hex.replace('#', ''), 16); }
 
   /* ================================================================
-     POWDER-COAT CANVAS TEXTURE
-     Flat base colour + micro-grain noise + centred label
+     LABEL TEXTURE  —  flat powder-coat colour + large centred text
+     Canvas aspect ratio matches the physical face dimensions so
+     text is not stretched or squished.
   ================================================================ */
   function makeTexture(proj) {
-    const SZ  = 512;
+    // Canvas sized to face aspect ratio (prevents text distortion)
+    const BASE = 512;
+    const ratio = proj.faceW / proj.faceH;
+    const cw = ratio >= 1 ? BASE : Math.round(BASE * ratio);
+    const ch = ratio >= 1 ? Math.round(BASE / ratio) : BASE;
+
     const cv  = document.createElement('canvas');
-    cv.width  = cv.height = SZ;
+    cv.width  = cw;
+    cv.height = ch;
     const ctx = cv.getContext('2d');
 
-    // ── 1. Flat base colour ──────────────────────────────────────
+    // Flat base colour — no gradients, no noise
     ctx.fillStyle = proj.hex;
-    ctx.fillRect(0, 0, SZ, SZ);
+    ctx.fillRect(0, 0, cw, ch);
 
-    // ── 2. Powder-coat micro-grain (pixel-level noise) ───────────
-    const imgData = ctx.getImageData(0, 0, SZ, SZ);
-    const d       = imgData.data;
-    // Seeded pseudo-random for consistency across redraws
-    let seed = 42;
-    const rand = () => { seed = (seed * 1664525 + 1013904223) & 0xffffffff; return (seed >>> 0) / 0xffffffff; };
-    for (let i = 0; i < d.length; i += 4) {
-      const n = (rand() - 0.5) * 22;
-      d[i]     = Math.max(0, Math.min(255, d[i]     + n));
-      d[i + 1] = Math.max(0, Math.min(255, d[i + 1] + n));
-      d[i + 2] = Math.max(0, Math.min(255, d[i + 2] + n));
-    }
-    ctx.putImageData(imgData, 0, 0);
-
-    // ── 3. Soft inner-shadow vignette (edge depth) ───────────────
-    const vig = ctx.createRadialGradient(SZ/2, SZ/2, SZ * 0.22, SZ/2, SZ/2, SZ * 0.72);
-    vig.addColorStop(0, 'rgba(0,0,0,0)');
-    vig.addColorStop(1, 'rgba(0,0,0,0.20)');
-    ctx.fillStyle = vig;
-    ctx.fillRect(0, 0, SZ, SZ);
-
-    // ── 4. Label ─────────────────────────────────────────────────
+    // Label
     const bright    = brightness(proj.hex);
-    const textColor = bright < 148
-      ? 'rgba(255,255,255,0.88)'
-      : 'rgba(28,28,28,0.78)';
-
+    const textColor = bright < 148 ? 'rgba(255,255,255,0.92)' : 'rgba(22,22,22,0.82)';
     ctx.fillStyle    = textColor;
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
 
+    const short = Math.min(cw, ch);
     const words = proj.name.split(' ');
+
     if (words.length === 1) {
-      const fs = proj.name.length > 8 ? 50 : 60;
-      ctx.font = `600 ${fs}px -apple-system, "Helvetica Neue", Arial, sans-serif`;
-      ctx.fillText(proj.name, SZ / 2, SZ / 2);
+      // Single word — fill ~55 % of the shorter side
+      const fs = Math.round(short * (proj.name.length > 7 ? 0.50 : 0.58));
+      ctx.font = `700 ${fs}px -apple-system, "Helvetica Neue", Arial, sans-serif`;
+      ctx.fillText(proj.name, cw / 2, ch / 2);
     } else {
-      ctx.font = `600 52px -apple-system, "Helvetica Neue", Arial, sans-serif`;
-      ctx.fillText(words[0],              SZ / 2, SZ / 2 - 36);
-      ctx.fillText(words.slice(1).join(' '), SZ / 2, SZ / 2 + 36);
+      // Two words stacked
+      const fs = Math.round(short * 0.46);
+      ctx.font = `700 ${fs}px -apple-system, "Helvetica Neue", Arial, sans-serif`;
+      ctx.fillText(words[0],                  cw / 2, ch / 2 - fs * 0.56);
+      ctx.fillText(words.slice(1).join(' '),  cw / 2, ch / 2 + fs * 0.56);
     }
 
     return new THREE.CanvasTexture(cv);
-  }
-
-  /* ================================================================
-     ROUNDED BOX GEOMETRY
-     Uses ExtrudeGeometry with a rounded-rect Shape + bevel.
-     All 12 edges and all 8 corners become smooth.
-  ================================================================ */
-  function makeRoundedBoxGeo(width, height, depth, radius, segs) {
-    radius = Math.min(radius, width / 2 - 0.002, height / 2 - 0.002, depth / 2 - 0.002);
-    const x = -width  / 2;
-    const y = -height / 2;
-    const r = radius;
-
-    const shape = new THREE.Shape();
-    shape.moveTo(x, y + r);
-    shape.lineTo(x, y + height - r);
-    shape.quadraticCurveTo(x,             y + height, x + r,         y + height);
-    shape.lineTo(x + width - r,           y + height);
-    shape.quadraticCurveTo(x + width,     y + height, x + width,     y + height - r);
-    shape.lineTo(x + width,               y + r);
-    shape.quadraticCurveTo(x + width,     y,           x + width - r, y);
-    shape.lineTo(x + r,                   y);
-    shape.quadraticCurveTo(x,             y,           x,             y + r);
-
-    const extrudeDepth = Math.max(0.001, depth - 2 * radius);
-    const geo = new THREE.ExtrudeGeometry(shape, {
-      depth:          extrudeDepth,
-      bevelEnabled:   true,
-      bevelThickness: radius,
-      bevelSize:      radius * 0.92,
-      bevelSegments:  segs,
-      curveSegments:  segs,
-    });
-    geo.center();
-    geo.computeVertexNormals();
-    return geo;
   }
 
   /* ================================================================
@@ -289,22 +238,20 @@
   const HS = (C + G) / 2;   // 0.75
   const P  = 2 * C + G;     // 2.90
 
-  const RAD  = 0.13;   // corner/edge radius
-  const SEGS = 3;      // bevel + curve segments
-
+  //  All rotations = 0 so neighbouring faces are perfectly parallel/flush
   const BLOCK_DEFS = [
     // P1 – tall vertical prism, left col, full height, front  ── Megamarket
-    { w: C, h: P, d: C,  x: -HS, y:   0, z: -HS,  rx:  0.018, ry:  0.026, rz:  0.010 },
+    { w: C, h: P, d: C,  x: -HS, y:   0, z: -HS },
     // P2 – wide horizontal prism, bottom row, full width, back ── Avito
-    { w: P, h: C, d: C,  x:   0, y: -HS, z: +HS,  rx: -0.014, ry:  0.030, rz: -0.008 },
+    { w: P, h: C, d: C,  x:   0, y: -HS, z: +HS },
     // C1 – cube, front-right-bottom                           ── Viju
-    { w: C, h: C, d: C,  x: +HS, y: -HS, z: -HS,  rx:  0.022, ry: -0.018, rz:  0.015 },
+    { w: C, h: C, d: C,  x: +HS, y: -HS, z: -HS },
     // C2 – cube, front-right-top                             ── Viju CMS
-    { w: C, h: C, d: C,  x: +HS, y: +HS, z: -HS,  rx: -0.013, ry:  0.021, rz:  0.011 },
+    { w: C, h: C, d: C,  x: +HS, y: +HS, z: -HS },
     // C3 – cube, back-left-top                               ── Brag House
-    { w: C, h: C, d: C,  x: -HS, y: +HS, z: +HS,  rx:  0.018, ry: -0.024, rz: -0.013 },
+    { w: C, h: C, d: C,  x: -HS, y: +HS, z: +HS },
     // C4 – cube, back-right-top                              ── Sbermarket
-    { w: C, h: C, d: C,  x: +HS, y: +HS, z: +HS,  rx: -0.011, ry:  0.017, rz:  0.020 },
+    { w: C, h: C, d: C,  x: +HS, y: +HS, z: +HS },
   ];
 
   const meshes   = [];
@@ -312,20 +259,32 @@
 
   PROJECTS.forEach((proj, i) => {
     const def = BLOCK_DEFS[i];
-    const geo = makeRoundedBoxGeo(def.w, def.h, def.d, RAD, SEGS);
-    const tex = makeTexture(proj);
 
-    // ── Powder-coat material: zero metal, high roughness ──────
-    const mat = new THREE.MeshStandardMaterial({
-      map:       tex,
-      color:     0xffffff,
+    // Sharp-edged box geometry — only corners stay as natural vertex points
+    const geo = new THREE.BoxGeometry(def.w, def.h, def.d);
+
+    // Flat powder-coat colour for the 5 plain faces
+    const plainMat = new THREE.MeshStandardMaterial({
+      color:     hexInt(proj.hex),
       metalness: 0.00,
       roughness: 0.86,
     });
 
-    const mesh = new THREE.Mesh(geo, mat);
+    // Label face (+Z, facing camera in default orientation)
+    // Texture is sized to match the physical face so text is undistorted
+    const labelMat = new THREE.MeshStandardMaterial({
+      map:       makeTexture(proj),
+      metalness: 0.00,
+      roughness: 0.86,
+    });
+
+    // BoxGeometry face order:  +X  -X  +Y  -Y  +Z(label)  -Z
+    const mesh = new THREE.Mesh(geo, [
+      plainMat, plainMat, plainMat, plainMat, labelMat, plainMat,
+    ]);
+
     mesh.position.set(def.x, def.y, def.z);
-    mesh.rotation.set(def.rx, def.ry, def.rz);
+    // No rotation — all faces perfectly axis-aligned and parallel
     mesh.castShadow    = true;
     mesh.receiveShadow = true;
     mesh.userData      = { proj, hovered: false };
