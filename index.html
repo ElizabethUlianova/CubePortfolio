@@ -102,7 +102,7 @@
 
   const W = window.innerWidth, H = window.innerHeight;
   const camera = new THREE.PerspectiveCamera(42, W / H, 0.1, 200);
-  camera.position.set(0, 0.1, 9.5);
+  camera.position.set(0, 0.2, 7.2);
 
   const renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -303,44 +303,56 @@
   }
 
   /* ================================================================
-     BLOCKS
+     BLOCKS  —  2 × 2 × 2 master cube, asymmetric subdivision
+     ────────────────────────────────────────────────────────────
+     Unit cell: C = 1.4   Gap between cells: G = 0.08
+     Half-step: HS = (C+G)/2 = 0.74
+     Prism span (two merged cells): P = 2*C + G = 2.88
+
+     Front face (z = −HS):
+       [ P1 tall ][  C2  ]
+       [ P1 tall ][  C1  ]
+
+     Back face  (z = +HS):
+       [  C3  ][  C4  ]
+       [ P2 wide prism ]
+
+     P1 + P2 form an L-like complementary pair:
+       P1 = vertical stroke (left, full-height, front)
+       P2 = horizontal stroke (full-width, bottom, back)
   ================================================================ */
   const GROUP = new THREE.Group();
   scene.add(GROUP);
 
-  const S    = 1.42;  // block edge
-  const GAP  = 0.13;
-  const STEP = S + GAP;
+  const C  = 1.4;            // unit cell size
+  const G  = 0.08;           // gap between cells
+  const HS = (C + G) / 2;   // half-step  = 0.74
+  const P  = 2 * C + G;     // prism span = 2.88
 
-  // 2-col × 3-row grid, centred
-  const COLS = 2, ROWS = 3;
-  const ox   = -(COLS - 1) / 2 * STEP;
-  const oy   =  (ROWS - 1) / 2 * STEP;
-
-  // Per-block sculpting: z-offset + tiny rotation offsets
-  const SCULPT = [
-    { z:  0.20, rx:  0.025, ry:  0.042, rz:  0.014 },
-    { z: -0.12, rx: -0.020, ry:  0.050, rz: -0.011 },
-    { z: -0.18, rx:  0.032, ry: -0.028, rz:  0.019 },
-    { z:  0.09, rx: -0.016, ry: -0.036, rz:  0.023 },
-    { z:  0.05, rx:  0.040, ry:  0.026, rz: -0.018 },
-    { z: -0.24, rx: -0.033, ry:  0.014, rz:  0.031 },
+  //  Each entry: geometry (w,h,d), centre position (x,y,z), tiny rotation (rx,ry,rz)
+  //  Projects in order: Megamarket, Avito, Viju, VijuCMS, BragHouse, Sbermarket
+  const BLOCK_DEFS = [
+    // ── P1 : tall vertical prism — upper-left, front layer ── Megamarket
+    { w: C, h: P, d: C,  x: -HS, y:   0, z: -HS,  rx:  0.018, ry:  0.028, rz:  0.010 },
+    // ── P2 : wide horizontal prism — bottom row, back layer ── Avito
+    { w: P, h: C, d: C,  x:   0, y: -HS, z: +HS,  rx: -0.015, ry:  0.032, rz: -0.008 },
+    // ── C1 : cube — front-right-bottom ── Viju
+    { w: C, h: C, d: C,  x: +HS, y: -HS, z: -HS,  rx:  0.025, ry: -0.018, rz:  0.016 },
+    // ── C2 : cube — front-right-top ── Viju CMS
+    { w: C, h: C, d: C,  x: +HS, y: +HS, z: -HS,  rx: -0.014, ry:  0.022, rz:  0.012 },
+    // ── C3 : cube — back-left-top ── Brag House
+    { w: C, h: C, d: C,  x: -HS, y: +HS, z: +HS,  rx:  0.020, ry: -0.025, rz: -0.015 },
+    // ── C4 : cube — back-right-top ── Sbermarket
+    { w: C, h: C, d: C,  x: +HS, y: +HS, z: +HS,  rx: -0.012, ry:  0.018, rz:  0.022 },
   ];
 
   const meshes   = [];
-  const basePosY = [];   // store base Y for per-block float
+  const basePosY = [];
 
   PROJECTS.forEach((proj, i) => {
-    const col = i % COLS;
-    const row = Math.floor(i / COLS);
-    const sc  = SCULPT[i];
+    const def = BLOCK_DEFS[i];
 
-    const bx = ox + col * STEP;
-    const by = oy - row * STEP;
-    const bz = sc.z;
-    basePosY.push(by);
-
-    const geo = new THREE.BoxGeometry(S, S, S);
+    const geo = new THREE.BoxGeometry(def.w, def.h, def.d);
     const tex = makeTexture(proj);
 
     const matOpts = {
@@ -358,14 +370,15 @@
     const mat  = new THREE.MeshStandardMaterial(matOpts);
     const mesh = new THREE.Mesh(geo, mat);
 
-    mesh.position.set(bx, by, bz);
-    mesh.rotation.set(sc.rx, sc.ry, sc.rz);
+    mesh.position.set(def.x, def.y, def.z);
+    mesh.rotation.set(def.rx, def.ry, def.rz);
     mesh.castShadow    = true;
     mesh.receiveShadow = true;
     mesh.userData      = { proj, hovered: false };
 
     GROUP.add(mesh);
     meshes.push(mesh);
+    basePosY.push(def.y);
   });
 
   /* ================================================================
@@ -471,8 +484,8 @@
 
     // Per-block animation
     meshes.forEach((mesh, i) => {
-      // Individual float
-      const floatY = Math.sin(t * 0.58 + i * 1.08) * 0.026;
+      // Very subtle individual breathing — keeps composition coherent
+      const floatY = Math.sin(t * 0.55 + i * 1.1) * 0.012;
       mesh.position.y = basePosY[i] + floatY;
 
       // Scale on hover
