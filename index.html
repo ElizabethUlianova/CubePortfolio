@@ -8,7 +8,8 @@
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      background: #919191;
+      background: linear-gradient(to bottom, #DCDCD9 0%, #CFCFCC 100%);
+      background-attachment: fixed;
       overflow: hidden;
       font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
       -webkit-font-smoothing: antialiased;
@@ -41,7 +42,7 @@
       bottom: 30px;
       left: 50%;
       transform: translateX(-50%);
-      color: rgba(255, 255, 255, 0.35);
+      color: rgba(0, 0, 0, 0.28);
       font-size: 9px;
       font-weight: 500;
       letter-spacing: 0.22em;
@@ -54,7 +55,7 @@
     #brand {
       position: fixed;
       top: 28px; left: 36px;
-      color: rgba(255, 255, 255, 0.50);
+      color: rgba(0, 0, 0, 0.38);
       font-size: 10px;
       font-weight: 600;
       letter-spacing: 0.22em;
@@ -65,7 +66,7 @@
     #counter {
       position: fixed;
       top: 28px; right: 36px;
-      color: rgba(255, 255, 255, 0.32);
+      color: rgba(0, 0, 0, 0.26);
       font-size: 10px;
       font-weight: 500;
       letter-spacing: 0.15em;
@@ -91,19 +92,20 @@
   const tooltip = document.getElementById('tooltip');
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x919191);
+  // No scene background — CSS gradient on body shows through the transparent canvas
 
   const camera = new THREE.PerspectiveCamera(42, innerWidth / innerHeight, 0.1, 200);
   camera.position.set(0, 0.2, 7.2);
 
-  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setClearColor(0x000000, 0);          // fully transparent clear
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   renderer.setSize(innerWidth, innerHeight);
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type    = THREE.PCFSoftShadowMap;
   renderer.outputEncoding    = THREE.sRGBEncoding;
   renderer.toneMapping       = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = 1.12;
   document.body.appendChild(renderer.domElement);
 
   /* ================================================================
@@ -121,32 +123,75 @@
   controls.maxPolarAngle   = Math.PI * 0.82;
 
   /* ================================================================
-     LIGHTING  —  tuned for powder-coat matte surfaces
+     LIGHTING  —  soft industrial studio cyclorama
+     ────────────────────────────────────────────────────────────
+     Key    large softbox, front-left above   — warm, wide shadow
+     Fill   weak panel, front-right           — cool, no shadow
+     Top    overhead area wash                — neutral, no shadow
+     Rim    subtle rear-right edge light      — slight blue, no shadow
   ================================================================ */
-  // Generous ambient so all faces are readable
-  scene.add(new THREE.AmbientLight(0xffffff, 0.72));
 
-  // Main key (warm, upper-right-front)
-  const keyLight = new THREE.DirectionalLight(0xfff8f0, 1.2);
-  keyLight.position.set(6, 9, 7);
+  // Global ambient — lifts all shadows, keeps contrast low
+  scene.add(new THREE.AmbientLight(0xffffff, 0.48));
+
+  // KEY — large rectangular softbox, front-left, above
+  // Simulated with a directional light + soft shadow radius
+  const keyLight = new THREE.DirectionalLight(0xfff6ee, 0.88);
+  keyLight.position.set(-7, 10, 7);
   keyLight.castShadow = true;
   keyLight.shadow.mapSize.set(2048, 2048);
-  keyLight.shadow.camera.left   = keyLight.shadow.camera.bottom = -10;
-  keyLight.shadow.camera.right  = keyLight.shadow.camera.top   =  10;
-  keyLight.shadow.camera.near   = 0.5;
-  keyLight.shadow.camera.far    = 40;
-  keyLight.shadow.bias          = -0.002;
+  keyLight.shadow.camera.left   = -12;  keyLight.shadow.camera.right = 12;
+  keyLight.shadow.camera.top    =  12;  keyLight.shadow.camera.bottom = -12;
+  keyLight.shadow.camera.near   = 0.5;  keyLight.shadow.camera.far   = 50;
+  keyLight.shadow.bias          = -0.001;
+  keyLight.shadow.radius        = 6;    // broad, diffused shadow edge
   scene.add(keyLight);
 
-  // Cool fill from left-back (separates blocks from bg)
-  const fillLight = new THREE.DirectionalLight(0xdde8f5, 0.45);
-  fillLight.position.set(-6, 1, -5);
+  // FILL — weak panel, front-right, slightly cool
+  const fillLight = new THREE.DirectionalLight(0xf0f4ff, 0.20);
+  fillLight.position.set(6, 2, 7);
   scene.add(fillLight);
 
-  // Soft under-light (lifts shadow faces slightly)
-  const bottomLight = new THREE.DirectionalLight(0xffffff, 0.18);
-  bottomLight.position.set(0, -8, 2);
-  scene.add(bottomLight);
+  // TOP — soft overhead wash, neutral
+  const topLight = new THREE.DirectionalLight(0xffffff, 0.26);
+  topLight.position.set(1, 12, 2);
+  scene.add(topLight);
+
+  // RIM — subtle rear-right, barely enough to separate silhouette
+  const rimLight = new THREE.DirectionalLight(0xd8e4ff, 0.11);
+  rimLight.position.set(6, 4, -9);
+  scene.add(rimLight);
+
+  /* ================================================================
+     CONTACT SHADOW  —  diffused blob below the levitating group
+  ================================================================ */
+  (function buildContactShadow() {
+    const SIZE = 256;
+    const cv   = document.createElement('canvas');
+    cv.width   = SIZE; cv.height = SIZE;
+    const ctx  = cv.getContext('2d');
+    const grad = ctx.createRadialGradient(SIZE/2, SIZE/2, 0, SIZE/2, SIZE/2, SIZE/2);
+    grad.addColorStop(0,   'rgba(60,55,50,0.38)');
+    grad.addColorStop(0.5, 'rgba(60,55,50,0.14)');
+    grad.addColorStop(1,   'rgba(0,0,0,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, SIZE, SIZE);
+
+    const shadowMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(6.8, 5.2),
+      new THREE.MeshBasicMaterial({
+        map:        new THREE.CanvasTexture(cv),
+        transparent: true,
+        depthWrite:  false,
+        opacity:     0.72,
+      })
+    );
+    shadowMesh.rotation.x = -Math.PI / 2;
+    shadowMesh.position.y = -2.0;
+    scene.add(shadowMesh);
+    // Expose so animate() can track GROUP.position.y
+    window._contactShadow = shadowMesh;
+  }());
 
   /* ================================================================
      PROJECT DATA
@@ -165,26 +210,58 @@
      HELPERS
   ================================================================ */
 
-  // Box geometry with 8 rounded vertex corners (radius r) but otherwise sharp.
-  // Uses a subdivided BoxGeometry; each vertex is projected outward from the
-  // "inner box" (shrunk by r) so corners become spherical caps while flat face
-  // centres remain perfectly planar. Six material groups are preserved intact.
-  function createRoundedBoxGeometry(w, h, d, r, segs) {
-    const geo = new THREE.BoxGeometry(w, h, d, segs, segs, segs);
+  // Dual-radius rounded box:
+  //   edgeR   = small fillet radius along the 12 edges (medium-sharp)
+  //   cornerR = larger spherical cap radius at the 8 vertices (large rounding)
+  //
+  // Algorithm: for each vertex, test which zone it falls in using two inner boxes.
+  //   "Corner zone"  — all 3 displacement components non-zero from the cornerR inner box
+  //                    → project to sphere of cornerR
+  //   "Edge zone"    — 1-2 non-zero components from edgeR inner box
+  //                    → project to cylinder/sphere of edgeR
+  //   Face centres   — zero displacement → unchanged (flat)
+  //
+  // Six material groups (per BoxGeometry face) are fully preserved.
+  function createDualRadiusBox(w, h, d, edgeR, cornerR, segs) {
+    const geo  = new THREE.BoxGeometry(w, h, d, segs, segs, segs);
     const pos  = geo.attributes.position;
-    const hw = w / 2 - r, hh = h / 2 - r, hd = d / 2 - r;
+    const eHw  = w / 2 - edgeR,   eHh = h / 2 - edgeR,   eHd = d / 2 - edgeR;
+    const cHw  = w / 2 - cornerR, cHh = h / 2 - cornerR, cHd = d / 2 - cornerR;
+    const EPS  = 1e-7;
+
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
-      // Nearest point on the inner box
-      const cx = Math.max(-hw, Math.min(hw, x));
-      const cy = Math.max(-hh, Math.min(hh, y));
-      const cz = Math.max(-hd, Math.min(hd, z));
-      const dx = x - cx, dy = y - cy, dz = z - cz;
-      const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      if (len > 1e-6) {
-        pos.setXYZ(i, cx + dx / len * r, cy + dy / len * r, cz + dz / len * r);
+
+      // Test corner zone first: clamp to cornerR inner box
+      const ccx = Math.max(-cHw, Math.min(cHw, x));
+      const ccy = Math.max(-cHh, Math.min(cHh, y));
+      const ccz = Math.max(-cHd, Math.min(cHd, z));
+      const cdx = x - ccx, cdy = y - ccy, cdz = z - ccz;
+
+      if (Math.abs(cdx) > EPS && Math.abs(cdy) > EPS && Math.abs(cdz) > EPS) {
+        // Corner zone: project to sphere of cornerR
+        const cLen = Math.sqrt(cdx * cdx + cdy * cdy + cdz * cdz);
+        pos.setXYZ(i,
+          ccx + cdx / cLen * cornerR,
+          ccy + cdy / cLen * cornerR,
+          ccz + cdz / cLen * cornerR);
+      } else {
+        // Edge zone: project to rounded edge of edgeR
+        const ecx = Math.max(-eHw, Math.min(eHw, x));
+        const ecy = Math.max(-eHh, Math.min(eHh, y));
+        const ecz = Math.max(-eHd, Math.min(eHd, z));
+        const edx = x - ecx, edy = y - ecy, edz = z - ecz;
+        const eLen = Math.sqrt(edx * edx + edy * edy + edz * edz);
+        if (eLen > EPS) {
+          pos.setXYZ(i,
+            ecx + edx / eLen * edgeR,
+            ecy + edy / eLen * edgeR,
+            ecz + edz / eLen * edgeR);
+        }
+        // eLen ≈ 0 → flat face centre → no change
       }
     }
+
     pos.needsUpdate = true;
     geo.computeVertexNormals();
     return geo;
@@ -300,14 +377,14 @@
   PROJECTS.forEach((proj, i) => {
     const def = BLOCK_DEFS[i];
 
-    // Rounded-corner box: edges stay 90°, only the 8 vertex corners get r=0.1
-    const geo = createRoundedBoxGeometry(def.w, def.h, def.d, 0.1, 6);
+    // Dual-radius box: edgeR=0.055 (medium-sharp edges), cornerR=0.24 (large vertex rounding)
+    const geo = createDualRadiusBox(def.w, def.h, def.d, 0.055, 0.24, 16);
 
     // Flat powder-coat colour for the 5 plain faces
     const plainMat = new THREE.MeshStandardMaterial({
       color:     hexInt(proj.hex),
-      metalness: 0.00,
-      roughness: 0.86,
+      metalness: 0.04,
+      roughness: 0.91,
     });
 
     // Label face — each block exposes its label on a different face:
@@ -319,8 +396,8 @@
     //   Sbermarket → +Z (index 4)
     const labelMat = new THREE.MeshStandardMaterial({
       map:       makeTexture(proj),
-      metalness: 0.00,
-      roughness: 0.86,
+      metalness: 0.04,
+      roughness: 0.91,
     });
 
     // Build material array, placing labelMat on the correct face index
@@ -407,6 +484,15 @@
     // Gentle whole-group float
     GROUP.position.y = Math.sin(t * 0.42) * 0.07;
     GROUP.position.x = Math.sin(t * 0.28) * 0.022;
+
+    // Contact shadow: follows GROUP, scales / fades as it lifts
+    if (window._contactShadow) {
+      const lift = GROUP.position.y;
+      window._contactShadow.position.y = -2.0 - lift * 0.4;
+      const scl = 1.0 + lift * 0.04;
+      window._contactShadow.scale.set(scl, scl, scl);
+      window._contactShadow.material.opacity = 0.72 - lift * 0.10;
+    }
 
     // Hover detection
     raycaster.setFromCamera(mouseNDC, camera);
